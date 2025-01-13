@@ -1,6 +1,8 @@
 
 #include <windows.h>
 #include <stdint.h>
+#include <xinput.h>
+
 
 #define internal static
 #define local_persist static
@@ -30,9 +32,34 @@ struct win32_window_dimension
 {
 	int Width;
 	int Height;
+	int p;
 };
 
-win32_window_dimension
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex,  XINPUT_STATE* pState)
+typedef X_INPUT_GET_STATE(x_input_get_state);
+X_INPUT_GET_STATE(XInputGetStateSub)
+{
+	return (0);
+}
+global_variable x_input_get_state *XInputGetState_ = XInputGetStateSub;
+#define XInputGetState XInputGetState_
+
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex,  XINPUT_VIBRATION* pVibration)
+typedef X_INPUT_SET_STATE(x_input_set_state);
+X_INPUT_SET_STATE(XInputSetStateSub)
+{
+	return (0);
+}
+global_variable x_input_set_state *XInputSetState_ = XInputSetStateSub;
+#define XInputSetState XInputSetState_
+
+internal void
+Win32LoadXInput(void)
+{
+
+}
+
+internal win32_window_dimension
 Win32GetWindowDimension(HWND Window)
 {
 	win32_window_dimension Dimension;
@@ -46,7 +73,7 @@ Win32GetWindowDimension(HWND Window)
 
 }
 
-global_variable bool Running;
+global_variable bool GlobalRunning;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 
 internal void
@@ -59,10 +86,12 @@ RenderWeirdGradient(win32_offscreen_buffer Buffer, int XOffset, int YOffset)
 		uint32* Pixel = (uint32*)Row;
 		for (int x = 0; x < Buffer.Width; ++x)
 		{
+			
 			uint8 Blue = (x + XOffset);
-			uint8 Green= (y + YOffset);
+			uint8 Green = 100;
+			uint8 Red = y;
 
-			*Pixel++ = ((Green << 8)| Blue);
+			*Pixel++ = ((Red << 16) |(Green << 8)| Blue);
 
 		}
 
@@ -100,8 +129,7 @@ Win32ResizeDIBSection(win32_offscreen_buffer* Buffer, int Width, int Height)
 
 internal void
 Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,
-						win32_offscreen_buffer Buffer,
-						int w, int y)
+						win32_offscreen_buffer Buffer)
 {
 	StretchDIBits(DeviceContext,
 		0, 0, WindowWidth, WindowHeight,
@@ -129,7 +157,7 @@ Win32MainWindowCallback(
 		}break;
 		case WM_CLOSE:
 		{
-			Running = false;
+			GlobalRunning = false;
 			//PostQuitMessage(0);
 			OutputDebugStringA("WM_CLOSE\n");
 		}break;
@@ -139,7 +167,7 @@ Win32MainWindowCallback(
 		}break;
 		case WM_DESTROY:
 		{
-			Running = false;
+			GlobalRunning = false;
 			OutputDebugStringA("WM_DESTROY\n");
 		}break;
 		
@@ -149,16 +177,10 @@ Win32MainWindowCallback(
 			HDC DeviceContext;
 			DeviceContext = BeginPaint(Window, &paint);
 			
-			int x = paint.rcPaint.left;
-			int y = paint.rcPaint.top;
-			int height = paint.rcPaint.bottom - paint.rcPaint.top;
-			int width = paint.rcPaint.right - paint.rcPaint.left;
-
 			win32_window_dimension Dimension = Win32GetWindowDimension(Window);
 
 			Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height,
-										GlobalBackBuffer, 
-										x, y);
+										GlobalBackBuffer);
 			EndPaint(Window, &paint);
 			
 		}break;
@@ -172,7 +194,7 @@ Win32MainWindowCallback(
 }
 
 int __stdcall 
-WinMain( 
+WinMain(
 	HINSTANCE Instance,
 	HINSTANCE PrevInstance,
 	LPSTR     CommandLine,
@@ -184,7 +206,7 @@ WinMain(
 	Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
 
 	WindowClass.cbSize = sizeof(WNDCLASSEX);
-	WindowClass.style = CS_HREDRAW|CS_VREDRAW;
+	WindowClass.style = CS_HREDRAW|CS_VREDRAW|CS_OWNDC;
 	WindowClass.lpfnWndProc = Win32MainWindowCallback;
 	WindowClass.hInstance = Instance;
 	//WindowClass.hIcon = ;
@@ -215,8 +237,10 @@ WinMain(
 			int YOffset = 0;
 			int yDirection = 0;
 
-			Running = true;
-			while ( Running )
+			HDC DeviceContext = GetDC(Window);
+
+			GlobalRunning = true;
+			while ( GlobalRunning )
 			{
 				
 				MSG Message;
@@ -224,18 +248,51 @@ WinMain(
 				{
 					if (Message.message == WM_QUIT)
 					{
-						Running = false;
+						GlobalRunning = false;
 					}
 					TranslateMessage(&Message);
 					DispatchMessage(&Message);
 				}
+
+				for (DWORD ControllerIndex = 0 ; 
+					ControllerIndex < XUSER_MAX_COUNT ; 
+					++ControllerIndex)
+				{
+					XINPUT_STATE ControllerState;
+					if (XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
+					{
+						XINPUT_GAMEPAD* Pad = &ControllerState.Gamepad;
+
+						bool DPadUp = (Pad->wButtons && XINPUT_GAMEPAD_DPAD_UP);
+						bool DPadDown = (Pad->wButtons && XINPUT_GAMEPAD_DPAD_DOWN);
+						bool DPadLeft = (Pad->wButtons && XINPUT_GAMEPAD_DPAD_LEFT);
+						bool DPadRight = (Pad->wButtons && XINPUT_GAMEPAD_DPAD_RIGHT);
+						bool Start = (Pad->wButtons && XINPUT_GAMEPAD_START);
+						bool Back = (Pad->wButtons && XINPUT_GAMEPAD_BACK);
+						bool LeftShoulder = (Pad->wButtons && XINPUT_GAMEPAD_LEFT_SHOULDER);
+						bool RightShoulder = (Pad->wButtons && XINPUT_GAMEPAD_RIGHT_SHOULDER);
+						bool AButton = (Pad->wButtons && XINPUT_GAMEPAD_A);
+						bool BButton = (Pad->wButtons && XINPUT_GAMEPAD_B);
+						bool XButton = (Pad->wButtons && XINPUT_GAMEPAD_X);
+						bool YButton = (Pad->wButtons && XINPUT_GAMEPAD_Y);
+
+						int16 StickX = Pad->sThumbLX;
+						int16 StickY = Pad->sThumbLY;
+
+					}
+					else
+					{
+
+					}
+
+				}
 				
 				RenderWeirdGradient(GlobalBackBuffer, XOffset, YOffset);
 
-				HDC DeviceContext = GetDC(Window);
+				
 				win32_window_dimension Dimension = Win32GetWindowDimension(Window);
 				Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, 
-											GlobalBackBuffer, 0, 0);
+											GlobalBackBuffer);
 				ReleaseDC(Window,DeviceContext);
 
 				++XOffset;
