@@ -4,6 +4,7 @@
 #include <xinput.h>
 
 
+
 #define internal static
 #define local_persist static
 #define global_variable static
@@ -56,7 +57,12 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateSub;
 internal void
 Win32LoadXInput(void)
 {
-
+	HMODULE XInputLibrary = LoadLibraryW(L"xinput1_3.dll");
+	if (XInputLibrary)
+	{
+		XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+		XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+	}
 }
 
 internal win32_window_dimension
@@ -87,9 +93,9 @@ RenderWeirdGradient(win32_offscreen_buffer Buffer, int XOffset, int YOffset)
 		for (int x = 0; x < Buffer.Width; ++x)
 		{
 			
-			uint8 Blue = (x + XOffset);
-			uint8 Green = 100;
-			uint8 Red = y;
+			uint8 Blue = (x/2) + XOffset;
+			uint8 Green = (y/2) + YOffset;
+			uint8 Red = 0;
 
 			*Pixel++ = ((Red << 16) |(Green << 8)| Blue);
 
@@ -170,7 +176,64 @@ Win32MainWindowCallback(
 			GlobalRunning = false;
 			OutputDebugStringA("WM_DESTROY\n");
 		}break;
-		
+		case WM_SYSKEYDOWN:
+		case WM_SYSKEYUP:
+		case WM_KEYDOWN:
+		case WM_KEYUP:
+		{
+			uint32 VKCode = wParam;
+			bool wasDown = ((lParam & (1 << 30)) != 0);
+
+			if (VKCode == 'Z')
+			{
+
+			}
+			else if (VKCode == 'S')
+			{
+
+			}
+			else if (VKCode == 'Q')
+			{
+
+			}
+			else if (VKCode == 'D')
+			{
+
+			}
+			else if (VKCode == 'A')
+			{
+
+			}
+			else if (VKCode == 'E')
+			{
+
+			}
+			else if (VKCode == VK_UP)
+			{
+
+			}
+			else if (VKCode == VK_DOWN	)
+			{
+
+			}
+			else if (VKCode == VK_LEFT)
+			{
+
+			}
+			else if (VKCode == VK_RIGHT)
+			{
+
+			}
+			else if (VKCode == VK_ESCAPE)
+			{
+
+			}
+			else if (VKCode == VK_SPACE)
+			{
+
+			}		
+
+		}break;
 		case WM_PAINT:
 		{
 			PAINTSTRUCT paint;
@@ -201,6 +264,9 @@ WinMain(
 	int       nShowCmd)
 {
 	OutputDebugStringA("Started\n");
+
+	Win32LoadXInput();
+
 	WNDCLASSEX WindowClass = {};
 
 	Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
@@ -240,6 +306,7 @@ WinMain(
 			HDC DeviceContext = GetDC(Window);
 
 			GlobalRunning = true;
+
 			while ( GlobalRunning )
 			{
 				
@@ -253,6 +320,8 @@ WinMain(
 					TranslateMessage(&Message);
 					DispatchMessage(&Message);
 				}
+
+
 
 				for (DWORD ControllerIndex = 0 ; 
 					ControllerIndex < XUSER_MAX_COUNT ; 
@@ -279,6 +348,23 @@ WinMain(
 						int16 StickX = Pad->sThumbLX;
 						int16 StickY = Pad->sThumbLY;
 
+						if (StickX)
+						{
+							XOffset += -StickX/16000;
+						}
+						if (StickY)
+						{
+							YOffset += StickY / 16000;
+						}
+
+						if (YButton)
+						{
+							XINPUT_VIBRATION Vibration;
+							Vibration.wLeftMotorSpeed = 20000;
+							Vibration.wRightMotorSpeed = 20000;
+							XInputSetState(0, &Vibration);
+						}
+
 					}
 					else
 					{
@@ -286,6 +372,11 @@ WinMain(
 					}
 
 				}
+
+				XINPUT_VIBRATION Vibration;
+				Vibration.wLeftMotorSpeed = 60000;
+				Vibration.wRightMotorSpeed = 60000;
+				XInputSetState(0, &Vibration);
 				
 				RenderWeirdGradient(GlobalBackBuffer, XOffset, YOffset);
 
@@ -295,9 +386,9 @@ WinMain(
 											GlobalBackBuffer);
 				ReleaseDC(Window,DeviceContext);
 
-				++XOffset;
-		
-				YOffset += 1;			
+				//++XOffset;
+				
+							
 			}
 			
 		}
