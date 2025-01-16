@@ -83,14 +83,14 @@ global_variable bool GlobalRunning;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 
 internal void
-RenderWeirdGradient(win32_offscreen_buffer Buffer, int XOffset, int YOffset)
+RenderWeirdGradient(win32_offscreen_buffer *Buffer, int XOffset, int YOffset)
 {
 
-	uint8* Row = (uint8*)Buffer.Memory;
-	for (int y = 0; y < Buffer.Height; ++y)
+	uint8* Row = (uint8*)Buffer->Memory;
+	for (int y = 0; y < Buffer->Height; ++y)
 	{
 		uint32* Pixel = (uint32*)Row;
-		for (int x = 0; x < Buffer.Width; ++x)
+		for (int x = 0; x < Buffer->Width; ++x)
 		{
 			
 			uint8 Blue = (x/2) + XOffset;
@@ -101,7 +101,7 @@ RenderWeirdGradient(win32_offscreen_buffer Buffer, int XOffset, int YOffset)
 
 		}
 
-		Row += Buffer.Pitch;
+		Row += Buffer->Pitch;
 	}
 }
 
@@ -130,18 +130,19 @@ Win32ResizeDIBSection(win32_offscreen_buffer* Buffer, int Width, int Height)
 
 	Buffer->Pitch = Width * Buffer->BytesPerPixel;
 
-	RenderWeirdGradient(*Buffer, 0, 0);
+	RenderWeirdGradient(Buffer, 0, 0);
 }
 
 internal void
-Win32DisplayBufferInWindow(HDC DeviceContext, int WindowWidth, int WindowHeight,
-						win32_offscreen_buffer Buffer)
+Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer, 
+							HDC DeviceContext, 
+							int WindowWidth, int WindowHeight)
 {
 	StretchDIBits(DeviceContext,
 		0, 0, WindowWidth, WindowHeight,
-		0, 0, Buffer.Width, Buffer.Height,
-		Buffer.Memory,
-		&Buffer.Info,
+		0, 0, Buffer->Width, Buffer->Height,
+		Buffer->Memory,
+		&Buffer->Info,
 		DIB_RGB_COLORS, SRCCOPY);
 }
 
@@ -183,56 +184,67 @@ Win32MainWindowCallback(
 		{
 			uint32 VKCode = wParam;
 			bool wasDown = ((lParam & (1 << 30)) != 0);
+			bool isDown = ((lParam & (1 << 31)) == 0);
 
-			if (VKCode == 'Z')
+			if (wasDown != isDown)
 			{
+				if (VKCode == 'Z')
+				{
 
+				}
+				else if (VKCode == 'S')
+				{
+
+				}
+				else if (VKCode == 'Q')
+				{
+
+				}
+				else if (VKCode == 'D')
+				{
+
+				}
+				else if (VKCode == 'A')
+				{
+
+				}
+				else if (VKCode == 'E')
+				{
+
+				}
+				else if (VKCode == VK_UP)
+				{
+
+				}
+				else if (VKCode == VK_DOWN	)
+				{
+
+				}
+				else if (VKCode == VK_LEFT)
+				{
+
+				}
+				else if (VKCode == VK_RIGHT)
+				{
+
+				}
+				else if (VKCode == VK_ESCAPE)
+				{
+					if (isDown)
+					{
+						OutputDebugStringA("isDown ");
+					}
+					if (wasDown)
+					{
+						OutputDebugStringA("wasDown\n");
+					}
+
+				}
+				else if (VKCode == VK_SPACE)
+				{
+
+				}		
 			}
-			else if (VKCode == 'S')
-			{
-
-			}
-			else if (VKCode == 'Q')
-			{
-
-			}
-			else if (VKCode == 'D')
-			{
-
-			}
-			else if (VKCode == 'A')
-			{
-
-			}
-			else if (VKCode == 'E')
-			{
-
-			}
-			else if (VKCode == VK_UP)
-			{
-
-			}
-			else if (VKCode == VK_DOWN	)
-			{
-
-			}
-			else if (VKCode == VK_LEFT)
-			{
-
-			}
-			else if (VKCode == VK_RIGHT)
-			{
-
-			}
-			else if (VKCode == VK_ESCAPE)
-			{
-
-			}
-			else if (VKCode == VK_SPACE)
-			{
-
-			}		
-
 		}break;
 		case WM_PAINT:
 		{
@@ -242,8 +254,7 @@ Win32MainWindowCallback(
 			
 			win32_window_dimension Dimension = Win32GetWindowDimension(Window);
 
-			Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height,
-										GlobalBackBuffer);
+			Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
 			EndPaint(Window, &paint);
 			
 		}break;
@@ -359,12 +370,11 @@ WinMain(
 
 						if (YButton)
 						{
-							XINPUT_VIBRATION Vibration;
+							/*XINPUT_VIBRATION Vibration;
 							Vibration.wLeftMotorSpeed = 20000;
 							Vibration.wRightMotorSpeed = 20000;
-							XInputSetState(0, &Vibration);
+							XInputSetState(0, &Vibration);*/
 						}
-
 					}
 					else
 					{
@@ -372,25 +382,16 @@ WinMain(
 					}
 
 				}
-
-				XINPUT_VIBRATION Vibration;
-				Vibration.wLeftMotorSpeed = 60000;
-				Vibration.wRightMotorSpeed = 60000;
-				XInputSetState(0, &Vibration);
 				
-				RenderWeirdGradient(GlobalBackBuffer, XOffset, YOffset);
-
-				
+				RenderWeirdGradient(&GlobalBackBuffer, XOffset, YOffset);
+		
 				win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-				Win32DisplayBufferInWindow(DeviceContext, Dimension.Width, Dimension.Height, 
-											GlobalBackBuffer);
+				Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
 				ReleaseDC(Window,DeviceContext);
 
-				//++XOffset;
-				
+				//++XOffset;		
 							
-			}
-			
+			}		
 		}
 		else
 		{
