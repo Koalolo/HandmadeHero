@@ -193,7 +193,7 @@ WinMain(
 	//WindowClass.lpszMenuName = ;
 	WindowClass.lpszClassName = TEXT("HandmadeHeroWindowsClass");
 
-	if (RegisterClassEx(&WindowClass))
+ 	if (RegisterClassEx(&WindowClass))
 	{
 		HWND Window =
 			CreateWindowEx(
