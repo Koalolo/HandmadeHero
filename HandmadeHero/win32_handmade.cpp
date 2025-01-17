@@ -61,7 +61,9 @@ Win32LoadXInput(void)
 	if (XInputLibrary)
 	{
 		XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+		if (!XInputGetState) {XInputGetState = XInputGetStateSub;}
 		XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+		if (!XInputSetState) { XInputSetState = XInputSetStateSub; }
 	}
 }
 
@@ -249,11 +251,8 @@ Win32MainWindowCallback(
 		case WM_PAINT:
 		{
 			PAINTSTRUCT paint;
-			HDC DeviceContext;
-			DeviceContext = BeginPaint(Window, &paint);
-			
-			win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-
+			HDC DeviceContext = BeginPaint(Window, &paint);	
+			win32_window_dimension Dimension = Win32GetWindowDimension(Window); 
 			Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
 			EndPaint(Window, &paint);
 			
@@ -361,11 +360,11 @@ WinMain(
 
 						if (StickX)
 						{
-							XOffset += -StickX/16000;
-						}
+							XOffset += -StickX >> 12;
+						} 
 						if (StickY)
 						{
-							YOffset += StickY / 16000;
+							YOffset += StickY >> 12;
 						}
 
 						if (YButton)
